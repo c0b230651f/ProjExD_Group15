@@ -102,26 +102,6 @@ class Bird(pg.sprite.Sprite):
             self.image = self.imgs[self.dire]
         screen.blit(self.image, self.rect)
 
-class Hpbar(pg.sprite.Sprite):
-    """
-    
-    """
-
-    def __init__(self, bird:Bird):
-        super().__init__()
-
-        self.image = pg.Surface((WIDTH, HEIGHT))
-        self.rect = self.image.get_rect()
-        pg.draw.rect(self.image, (0, 0, 0), (0, 0, 10, 100))
-        pg.draw.rect(self.image, (0, 255, 0), (0, 0, 10, 10))
-
-    # def update(self, screen:pg.Surface):
-    #     self.image = pg.Surface(10, 100)
-    #     screen.blit(self.image, self.rect)
-
-
-
-
 class Bomb(pg.sprite.Sprite):
     """
     爆弾に関するクラス
@@ -262,19 +242,37 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class Hpbar:
+    # (pg.sprite.Sprite):
+    """
+    
+    """
+
+    def __init__(self, bird:Bird):
+        self.bird = bird
+        self.max = self.bird.hp
+
+    def update(self, screen:pg.Surface):
+        diff = (self.max - self.bird.hp)
+        pg.draw.rect(screen, (255, 0, 0), (50, 50, 50, self.max*5))
+        pg.draw.rect(screen, (0, 255, 0), (50, 50 + 5 * diff, 50, self.bird.hp*5))
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
-
     bird = Bird(3, (900, 400))
+    
+    hpbar = Hpbar(bird)
+
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
 
-    hpbars = pg.sprite.Group()
+    
 
     tmr = 0
     clock = pg.time.Clock()
@@ -307,7 +305,6 @@ def main():
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
             score.update(screen)
             bird.hp -= 10
-            print(f"現在の体力:{bird.hp}")
             if bird.hp <= 0:
                 bird.change_img(8, screen) # こうかとん悲しみエフェクト
                 pg.display.update()
@@ -324,14 +321,16 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+
+        hpbar.update(screen)
+
         pg.display.update()
         tmr += 1
         clock.tick(50)
 
-        hpbar = Hpbar(bird)
-        hpbars.add(hpbar)
-        hpbar.draw(screen)
-
+    
+        
+        
 
 
 if __name__ == "__main__":
