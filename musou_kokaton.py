@@ -37,14 +37,20 @@ def calc_orientation(org: pg.Rect, dst: pg.Rect) -> tuple[float, float]:
     return x_diff/norm, y_diff/norm
 
 
+def check_landing(obj_rct: pg.Rect) -> bool:
+    landing = False
+    if HEIGHT < obj_rct.bottom:
+        landing = True
+    return landing
+
 class Bird(pg.sprite.Sprite):
     """
     ゲームキャラクター（こうかとん）に関するクラス
     """
     delta = {  # 押下キーと移動量の辞書
         pg.K_UP: (0, -1),
-        pg.K_DOWN: (0, +1),
         pg.K_LEFT: (-1, 0),
+        pg.K_DOWN: (0, +1),
         pg.K_RIGHT: (+1, 0),
     }
 
@@ -94,6 +100,7 @@ class Bird(pg.sprite.Sprite):
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
         self.rect.move_ip(self.speed*sum_mv[0], self.speed*sum_mv[1])
+        print(check_landing(self.rect))
         if check_bound(self.rect) != (True, True):
             self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
@@ -220,7 +227,7 @@ class Enemy(pg.sprite.Sprite):
         if self.rect.centery > self.bound:
             self.vy = 0
             self.state = "stop"
-        self.rect.move_ip(vx, vy)
+        self.rect.move_ip(self.vx, self.vy)
 
 
 class Score:
@@ -288,7 +295,7 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
-
+            
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
