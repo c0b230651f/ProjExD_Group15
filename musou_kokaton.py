@@ -72,7 +72,7 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
-        self.hp = 100
+        self.hp = 100  # HP初期値設定
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -248,10 +248,11 @@ class Hpbar:
     """
     def __init__(self, bird:Bird):
         self.bird = bird
-        self.max = self.bird.hp
+        self.max = self.bird.hp  # HPの初期値を取得
 
     def update(self, screen:pg.Surface):
         diff = (self.max - self.bird.hp)
+        # 画面左側にHPバーを描画
         pg.draw.rect(screen, (255, 0, 0), (50, 50, 50, self.max*5))
         pg.draw.rect(screen, (0, 255, 0), (50, 50 + 5 * diff, 50, self.bird.hp*5))
 
