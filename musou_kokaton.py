@@ -246,15 +246,15 @@ class Hpbar:
     """
     HPバーを表示するクラス
     """
-    def __init__(self, bird:Bird):
-        self.bird = bird
-        self.max = self.bird.hp  # HPの初期値を取得
+    def __init__(self, obj:Bird):
+        self.obj = obj
+        self.max = self.obj.hp  # HPの初期値を取得
 
     def update(self, screen:pg.Surface):
-        diff = (self.max - self.bird.hp)
+        diff = (self.max - self.obj.hp)
         # 画面左側にHPバーを描画
         pg.draw.rect(screen, (255, 0, 0), (50, 50, 50, self.max*5))
-        pg.draw.rect(screen, (0, 255, 0), (50, 50 + 5 * diff, 50, self.bird.hp*5))
+        pg.draw.rect(screen, (0, 255, 0), (50, 50 + 5 * diff, 50, self.obj.hp*5))
 
 
 def main():
