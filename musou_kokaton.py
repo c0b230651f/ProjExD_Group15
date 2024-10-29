@@ -243,11 +243,9 @@ class Score:
 
 
 class Hpbar:
-    # (pg.sprite.Sprite):
     """
-    
+    HPバーを表示するクラス
     """
-
     def __init__(self, bird:Bird):
         self.bird = bird
         self.max = self.bird.hp
