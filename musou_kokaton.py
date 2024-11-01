@@ -255,7 +255,9 @@ class Hpbar:
         # 画面左側にHPバーを描画
         pg.draw.rect(screen, (255, 0, 0), (50, 50, 50, self.max*5))
         pg.draw.rect(screen, (0, 255, 0), (50, 50 + 5 * diff, 50, self.obj.hp*5))
-
+        pg.draw.rect(screen, (125, 50, 50), (50, 50, 50, self.max*5), 2)
+        for i in range(self.max):
+            pg.draw.rect(screen, (125, 50, 50), (50, 545-i*5, 50, 5), 1)
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
@@ -303,6 +305,7 @@ def main():
 
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
             score.update(screen)
+            bird.change_img(4, screen)  # こうかとんダメージリアクション
             bird.hp -= 10
             if bird.hp <= 0:
                 bird.change_img(8, screen) # こうかとん悲しみエフェクト
