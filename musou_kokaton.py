@@ -84,6 +84,8 @@ class Bird(pg.sprite.Sprite):
     def update(self, key_lst: list[bool], screen: pg.Surface):
         """
         押下キーに応じてこうかとんを移動させる
+        左右で左右に移動
+        上でジャンプ
         引数1 key_lst：押下キーの真理値リスト
         引数2 screen：画面Surface
         """
