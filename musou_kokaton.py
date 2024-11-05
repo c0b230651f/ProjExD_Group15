@@ -347,6 +347,44 @@ class Hpbar:
         for i in range(self.max//2):
             pg.draw.rect(screen, (125, 50, 50), (20, 215-i*4, 20, 2), 1)
 
+class HealItem(pg.sprite.Sprite):
+    """
+    回復アイテムに関するクラス
+    """
+    def __init__(self):
+        """
+        回復アイテムをランダムなx座標の画面上端に生成する
+        大きさと回復量と落下速度が比例していて、その値はランダムで決まる（5段階）
+        """
+        super().__init__()
+        self.random_num = random.randint(1, 5)
+        self.heal_num = self.random_num*10
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/0.png"), 0, 0.5+(self.random_num/10))
+        self.rect = self.image.get_rect()
+        self.rect.center = random.randint(0, WIDTH), 0
+        self.vx, self.vy = 0, 1 + self.random_num/2
+
+    def update(self):
+        """
+        回復アイテムを速度ベクトルself.vyに基づき反転させながら落下させる
+        画面端に到達したらself.kill()でインスタンスを削除する
+        """
+        if self.rect.centery/10%2 == 0:
+            self.image = pg.transform.flip(self.image, True, False)
+        if self.rect.centery > HEIGHT:
+            self.kill()
+        self.rect.move_ip(self.vx, self.vy)
+
+    def heal(self, bird: Bird):
+        """
+        Birdクラスのhpを回復量分回復する関数
+        """
+        mx_hp = 100
+        if (self.heal_num+bird.hp) <= mx_hp:
+            bird.hp += self.heal_num
+        else:
+            bird.hp = mx_hp
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -361,6 +399,8 @@ def main():
     c_beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    healitems = pg.sprite.Group()
+
 
     
 
@@ -399,6 +439,11 @@ def main():
             c_judge.value = c_tmr
         else:
             c_judge.value = 0
+
+        if tmr%100 == 0:  # 100フレームに一回乱数を発生させる
+            r_num = random.randint(1, 5)
+            if r_num == 1:  # 1/5の確率でアイテムを出現させる
+                healitems.add(HealItem())
 
         for emy in emys:
             if emy.state != "down" and tmr%emy.interval == 0:
@@ -441,6 +486,17 @@ def main():
                 pg.display.update()
                 time.sleep(2)
                 return
+        
+        # アイテムとこうかとんとの衝突判定
+        elif len(pg.sprite.spritecollide(bird, healitems, True)) != 0:
+            bird.change_img(6, screen)  # こうかとん喜びエフェクト
+            if (10+bird.hp) <= 100:
+                bird.hp += 10
+            else:
+                bird.hp = 100 
+            
+            pg.display.update()
+            time.sleep(0.2)  # 0.2秒停止
 
         bird.update(key_lst, screen)
         beams.update()
@@ -455,6 +511,8 @@ def main():
         exps.draw(screen)
         score.update(screen)
         c_judge.update(screen)
+        healitems.update()  # 回復アイテムの位置更新
+        healitems.draw(screen)  # 回復アイテムの描画
         hpbar.update(screen)
         pg.display.update()
         tmr += 1
