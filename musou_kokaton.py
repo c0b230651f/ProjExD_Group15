@@ -46,7 +46,6 @@ class Bird(pg.sprite.Sprite):
         pg.K_DOWN: (0, +1),
         pg.K_LEFT: (-1, 0),
         pg.K_RIGHT: (+1, 0),
-        pg.K_LSHIFT:(0,0),
     }
 
     def __init__(self, num: int, xy: tuple[int, int]):
@@ -73,10 +72,6 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
-        self.state = "normal"
-        self.hyper_life = -1
-        self.high_speed = 20
-
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -98,22 +93,14 @@ class Bird(pg.sprite.Sprite):
             if key_lst[k]:
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
-            if key_lst[pg.K_LSHIFT]:
-                self.speed = self.high_speed
-            else:
-                self.speed = 10
         self.rect.move_ip(self.speed*sum_mv[0], self.speed*sum_mv[1])
         if check_bound(self.rect) != (True, True):
             self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
-        if self.state == "hyper":
-            self.image = pg.transform.laplacian(self.image)
-            self.hyper_life -= 1
-        if self.hyper_life < 0:
-            self.state = "normal"
         screen.blit(self.image, self.rect)
+
 
 class Bomb(pg.sprite.Sprite):
     """
@@ -121,7 +108,7 @@ class Bomb(pg.sprite.Sprite):
     """
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
 
-    def __init__(self, emy: "Enemy", bird: Bird):
+    def __init__(self, emy: "Boss", bird: Bird):
         """
         爆弾円Surfaceを生成する
         引数1 emy：爆弾を投下する敵機
@@ -179,11 +166,12 @@ class Beam(pg.sprite.Sprite):
         if check_bound(self.rect) != (True, True):
             self.kill()
 
+
 class Explosion(pg.sprite.Sprite):
     """
     爆発に関するクラス
     """
-    def __init__(self, obj: "Bomb|Enemy", life: int):
+    def __init__(self, obj: "Bomb|Boss", life: int):
         """
         爆弾が爆発するエフェクトを生成する
         引数1 obj：爆発するBombまたは敵機インスタンス
@@ -310,12 +298,6 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird, 0))
-            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
-                if score.value >= 100:
-                    score.value -= 100
-                    bird.state = "hyper"
-                    bird.hyper_life = 500
-    
         screen.blit(bg_img, [0, 0])
         
         if len(emys) == 0:  
@@ -347,16 +329,12 @@ def main():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):
-            if bird.state == "hyper":
-                exps.add(Explosion(bomb, 50))  # 爆発エフェクト
-                score.value += 1  # 1点アップ
-            else:
-                bird.change_img(8, screen) # こうかとん喜びエフェクト
-                score.update(screen)
-                pg.display.update()
-                time.sleep(2)
-                return
+        if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
+            bird.change_img(8, screen) # こうかとん喜びエフェクト
+            score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return
 
         bird.update(key_lst, screen)
         beams.update()
