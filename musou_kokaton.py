@@ -71,6 +71,7 @@ class Bird(pg.sprite.Sprite):
         self.is_jumping = False
         self.hp = 100
         self.fall_speed = 5
+        self.state = "normal"
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -142,7 +143,7 @@ class Bomb(pg.sprite.Sprite):
         引数2 bird：攻撃対象のこうかとん
         """
         super().__init__()
-        rad = random.randint(30, 50)  # 爆弾円の半径：10以上50以下の乱数
+        rad = 15  # 爆弾円の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
         color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
@@ -152,7 +153,7 @@ class Bomb(pg.sprite.Sprite):
         self.vx, self.vy = calc_orientation(emy.rect, bird.rect)  
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
-        self.speed = 6
+        self.speed = 15
 
     def update(self):
         """
@@ -272,9 +273,8 @@ class Boss(pg.sprite.Sprite):
         self.state = "down"  # 降下状態or停止状態
         self.interval = random.randint(50, 300)  # 爆弾投下インターバル
         self.tmr = 0
-        self.hp = 5 # 敵のHPの初期値
+        self.hp = 50 # 敵のHPの初期値
         
-
     def update(self):
         """
         敵をstateに基づき移動させる
@@ -427,12 +427,8 @@ def main():
     emys = pg.sprite.Group()
     healitems = pg.sprite.Group()
 
-
-    
-
-
-
     tmr = 0
+    i_tmr = 0
     judge = False  # チャージしているか判定する。初期値False
     clock = pg.time.Clock()
 
@@ -474,16 +470,26 @@ def main():
                 healitems.add(HealItem())
 
         for emy in emys:
-            if emy.state != "down" and tmr%emy.interval == 0:
+            if tmr%30 == 0 and emy.state != "down":
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
             
         for emy in pg.sprite.spritecollide(bird, emys, False):
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return 
+            if bird.state != "invincible":
+                bird.hp -= 10
+                bird.change_img(4, screen)  # こうかとんダメージリアクション 
+                bird.state = "invincible"
+                i_tmr = 60
+
+            if bird.hp <= 0:
+                bird.change_img(8, screen) # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
+            
+        i_tmr -= 1
+        if i_tmr < 0:
+            bird.state = "normal"
 
         for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
@@ -491,9 +497,10 @@ def main():
             emy.hp -= 1
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
-        for emy in pg.sprite.groupcollide(emys, c_beams, True, True).keys():  # 敵とチャージビームの衝突
+        for emy in pg.sprite.groupcollide(emys, c_beams, False, True).keys():  # 敵とチャージビームの衝突
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 10  # 10点アップ
+            emy.hp -= 5
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
@@ -505,7 +512,6 @@ def main():
             score.value += 1  # 1点アップ
 
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
-            bird.change_img(8, screen) # こうかとん喜びエフェクト
             score.update(screen)
             bird.change_img(4, screen)  # こうかとんダメージリアクション 
             bird.hp -= 10
@@ -515,8 +521,7 @@ def main():
                 time.sleep(2)
                 return
         
-        # アイテムとこうかとんとの衝突判定
-        elif len(pg.sprite.spritecollide(bird, healitems, True)) != 0:
+        elif len(pg.sprite.spritecollide(bird, healitems, True)) != 0:  # アイテムとこうかとんとの衝突判定
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
             if (10+bird.hp) <= 100:
                 bird.hp += 10
@@ -524,7 +529,7 @@ def main():
                 bird.hp = 100 
             
             pg.display.update()
-            time.sleep(0.2)  # 0.2秒停止
+            time.sleep(0.1)  # 0.1秒停止
 
         bird.update(key_lst, screen)
         beams.update()
