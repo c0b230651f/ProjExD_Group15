@@ -253,11 +253,11 @@ class Hpbar:
     def update(self, screen:pg.Surface):
         diff = (self.max - self.obj.hp)
         # 画面左側にHPバーを描画
-        pg.draw.rect(screen, (255, 0, 0), (50, 50, 50, self.max*5))
-        pg.draw.rect(screen, (0, 255, 0), (50, 50 + 5 * diff, 50, self.obj.hp*5))
-        pg.draw.rect(screen, (125, 50, 50), (50, 50, 50, self.max*5), 2)
-        for i in range(self.max):
-            pg.draw.rect(screen, (125, 50, 50), (50, 545-i*5, 50, 5), 1)
+        pg.draw.rect(screen, (255, 0, 0), (20, 20, 20, self.max*2))
+        pg.draw.rect(screen, (0, 255, 0), (20, 20 + 2 * diff, 20, self.obj.hp*2))
+        pg.draw.rect(screen, (125, 50, 50), (20, 20, 20, self.max*2), 1)
+        for i in range(self.max//2):
+            pg.draw.rect(screen, (125, 50, 50), (20, 215-i*4, 20, 2), 1)
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
