@@ -46,6 +46,7 @@ class Bird(pg.sprite.Sprite):
         pg.K_DOWN: (0, +1),
         pg.K_LEFT: (-1, 0),
         pg.K_RIGHT: (+1, 0),
+        pg.K_LSHIFT:(0,0),
     }
 
     def __init__(self, num: int, xy: tuple[int, int]):
@@ -72,6 +73,10 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
+        self.state = "normal"
+        self.hyper_life = -1
+        self.high_speed = 20
+
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -93,14 +98,22 @@ class Bird(pg.sprite.Sprite):
             if key_lst[k]:
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
+            if key_lst[pg.K_LSHIFT]:
+                self.speed = self.high_speed
+            else:
+                self.speed = 10
         self.rect.move_ip(self.speed*sum_mv[0], self.speed*sum_mv[1])
         if check_bound(self.rect) != (True, True):
             self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
+        if self.state == "hyper":
+            self.image = pg.transform.laplacian(self.image)
+            self.hyper_life -= 1
+        if self.hyper_life < 0:
+            self.state = "normal"
         screen.blit(self.image, self.rect)
-
 
 class Bomb(pg.sprite.Sprite):
     """
@@ -115,7 +128,7 @@ class Bomb(pg.sprite.Sprite):
         引数2 bird：攻撃対象のこうかとん
         """
         super().__init__()
-        rad = random.randint(10, 50)  # 爆弾円の半径：10以上50以下の乱数
+        rad = random.randint(30, 50)  # 爆弾円の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
         color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
@@ -135,20 +148,20 @@ class Bomb(pg.sprite.Sprite):
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
-
+        
 
 class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0: int):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
         """
         super().__init__()
         self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        angle = math.degrees(math.atan2(-self.vy, self.vx)) + angle0
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 2.0)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
@@ -165,7 +178,6 @@ class Beam(pg.sprite.Sprite):
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
-
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -195,32 +207,64 @@ class Explosion(pg.sprite.Sprite):
             self.kill()
 
 
-class Enemy(pg.sprite.Sprite):
+class Boss(pg.sprite.Sprite):
     """
-    敵機に関するクラス
+    敵(ボス)に関するクラス
     """
-    imgs = [pg.image.load(f"fig/alien{i}.png") for i in range(1, 4)]
     
     def __init__(self):
         super().__init__()
-        self.image = random.choice(__class__.imgs)
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/alien1.png"),0, 2.0) # 敵の写真をロード
         self.rect = self.image.get_rect()
-        self.rect.center = random.randint(0, WIDTH), 0
+        self.rect.center = 700, 0
         self.vx, self.vy = 0, +6
-        self.bound = random.randint(50, HEIGHT//2)  # 停止位置
+        self.bound = HEIGHT-200  # 停止位置
         self.state = "down"  # 降下状態or停止状態
         self.interval = random.randint(50, 300)  # 爆弾投下インターバル
+        self.tmr = 0
+        self.hp = 5 # 敵のHPの初期値
+        
 
     def update(self):
         """
-        敵機を速度ベクトルself.vyに基づき移動（降下）させる
-        ランダムに決めた停止位置_boundまで降下したら，_stateを停止状態に変更する
+        敵をstateに基づき移動させる
+        決めた停止位置_boundまで降下したら，_stateを停止状態に変更する
         引数 screen：画面Surface
         """
-        if self.rect.centery > self.bound:
+        if self.hp <= 0: # hpが0になった時に、selfをkill
+            self.kill()
+        
+        if self.rect.centery > self.bound and self.state=="down": # 停止位置行った時とstateがdawnだったら、yのスピードを0に、stateをstop_dにする
             self.vy = 0
+            self.state = "stop_d"
+            
+        if self.state == "stop_d": # stateの状態がstop_dの時、タイマーを＋1していく
+            self.tmr += 1
+            if self.tmr%20 == 0: # タイマーが20秒おきにstateをmoveに変えて、タイマーを初期化、vxを左方向へ
+                self.state = "move"
+                self.tmr = 0
+                self.vx = -6
+                
+            else: # それ以外なら、止まる
+                self.vx = 0
+
+        if self.state == "stop": # stateがstopの時に、タイマーを+1していき、止まる
+            self.tmr += 1
+            self.vx = 0
+            if self.tmr%20 == 0: # タイマーが20秒おきにstateをmoveに変えて、タイマーを初期化、vxを右方向へ
+                self.state = "move"
+                self.tmr = 0
+                self.vx = 6
+
+        if self.rect.centerx < 100: # self.rect.centerxが100より小さい時に、反転し、stateをstopに変える
+            self.vx *= -1
             self.state = "stop"
-        self.rect.move_ip(vx, vy)
+            
+        if self.rect.centerx > 1000: # self.rect.centerxが1000より大きい時に、反転し、stateをstop_dに変える
+            self.vx *= -1
+            self.state = "stop_d"
+        
+        self.rect.move_ip(self.vx, self.vy)
 
 
 class Score:
@@ -256,38 +300,63 @@ def main():
 
     tmr = 0
     clock = pg.time.Clock()
+
+    emys.add(Boss()) # 敵の呼び出し
+
     while True:
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+                beams.add(Beam(bird, 0))
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
+                if score.value >= 100:
+                    score.value -= 100
+                    bird.state = "hyper"
+                    bird.hyper_life = 500
+    
         screen.blit(bg_img, [0, 0])
-
-        if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
-            emys.add(Enemy())
+        
+        if len(emys) == 0:  
+            bird.change_img(9, screen) # こうかとん悲しみエフェクト
+            score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return
 
         for emy in emys:
-            if emy.state == "stop" and tmr%emy.interval == 0:
+            if emy.state != "down" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
+            
+        for emy in pg.sprite.spritecollide(bird, emys, False):
+            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+            score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return 
 
-        for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
+        for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 10  # 10点アップ
+            emy.hp -= 1
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
-        if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
-            bird.change_img(8, screen) # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+        for bomb in pg.sprite.spritecollide(bird, bombs, True):
+            if bird.state == "hyper":
+                exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+                score.value += 1  # 1点アップ
+            else:
+                bird.change_img(8, screen) # こうかとん喜びエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -307,5 +376,5 @@ def main():
 if __name__ == "__main__":
     pg.init()
     main()
-    pg.quit()
+    pg.quit() 
     sys.exit()
