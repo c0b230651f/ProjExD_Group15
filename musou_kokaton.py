@@ -72,6 +72,7 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
+        self.hp = 100  # HP初期値設定
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -100,7 +101,6 @@ class Bird(pg.sprite.Sprite):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
         screen.blit(self.image, self.rect)
-
 
 class Bomb(pg.sprite.Sprite):
     """
@@ -242,17 +242,38 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class Hpbar:
+    """
+    HPバーを表示するクラス
+    """
+    def __init__(self, obj:Bird):
+        self.obj = obj
+        self.max = self.obj.hp  # HPの初期値を取得
+
+    def update(self, screen:pg.Surface):
+        diff = (self.max - self.obj.hp)
+        # 画面左側にHPバーを描画
+        pg.draw.rect(screen, (255, 0, 0), (20, 20, 20, self.max*2))
+        pg.draw.rect(screen, (0, 255, 0), (20, 20 + 2 * diff, 20, self.obj.hp*2))
+        pg.draw.rect(screen, (125, 50, 50), (20, 20, 20, self.max*2), 1)
+        for i in range(self.max//2):
+            pg.draw.rect(screen, (125, 50, 50), (20, 215-i*4, 20, 2), 1)
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
-
     bird = Bird(3, (900, 400))
+    
+    hpbar = Hpbar(bird)
+
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+
+    
 
     tmr = 0
     clock = pg.time.Clock()
@@ -283,11 +304,14 @@ def main():
             score.value += 1  # 1点アップ
 
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
-            bird.change_img(8, screen) # こうかとん悲しみエフェクト
             score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            bird.change_img(4, screen)  # こうかとんダメージリアクション
+            bird.hp -= 10
+            if bird.hp <= 0:
+                bird.change_img(8, screen) # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -299,9 +323,16 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+
+        hpbar.update(screen)
+
         pg.display.update()
         tmr += 1
         clock.tick(50)
+
+    
+        
+        
 
 
 if __name__ == "__main__":
