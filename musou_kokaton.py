@@ -108,14 +108,14 @@ class Bomb(pg.sprite.Sprite):
     """
     colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
 
-    def __init__(self, emy: "Enemy", bird: Bird):
+    def __init__(self, emy: "Boss", bird: Bird):
         """
         爆弾円Surfaceを生成する
         引数1 emy：爆弾を投下する敵機
         引数2 bird：攻撃対象のこうかとん
         """
         super().__init__()
-        rad = random.randint(10, 50)  # 爆弾円の半径：10以上50以下の乱数
+        rad = random.randint(30, 50)  # 爆弾円の半径：10以上50以下の乱数
         self.image = pg.Surface((2*rad, 2*rad))
         color = random.choice(__class__.colors)  # 爆弾円の色：クラス変数からランダム選択
         pg.draw.circle(self.image, color, (rad, rad), rad)
@@ -135,13 +135,13 @@ class Bomb(pg.sprite.Sprite):
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
-
+        
 
 class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle0: int):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
@@ -207,7 +207,7 @@ class Explosion(pg.sprite.Sprite):
     """
     爆発に関するクラス
     """
-    def __init__(self, obj: "Bomb|Enemy", life: int):
+    def __init__(self, obj: "Bomb|Boss", life: int):
         """
         爆弾が爆発するエフェクトを生成する
         引数1 obj：爆発するBombまたは敵機インスタンス
@@ -231,31 +231,63 @@ class Explosion(pg.sprite.Sprite):
             self.kill()
 
 
-class Enemy(pg.sprite.Sprite):
+class Boss(pg.sprite.Sprite):
     """
-    敵機に関するクラス
+    敵(ボス)に関するクラス
     """
-    imgs = [pg.image.load(f"fig/alien{i}.png") for i in range(1, 4)]
     
     def __init__(self):
         super().__init__()
-        self.image = random.choice(__class__.imgs)
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/alien1.png"),0, 2.0) # 敵の写真をロード
         self.rect = self.image.get_rect()
-        self.rect.center = random.randint(0, WIDTH), 0
+        self.rect.center = 700, 0
         self.vx, self.vy = 0, +6
-        self.bound = random.randint(50, HEIGHT//2)  # 停止位置
+        self.bound = HEIGHT-200  # 停止位置
         self.state = "down"  # 降下状態or停止状態
         self.interval = random.randint(50, 300)  # 爆弾投下インターバル
+        self.tmr = 0
+        self.hp = 5 # 敵のHPの初期値
+        
 
     def update(self):
         """
-        敵機を速度ベクトルself.vyに基づき移動（降下）させる
-        ランダムに決めた停止位置_boundまで降下したら，_stateを停止状態に変更する
+        敵をstateに基づき移動させる
+        決めた停止位置_boundまで降下したら，_stateを停止状態に変更する
         引数 screen：画面Surface
         """
-        if self.rect.centery > self.bound:
+        if self.hp <= 0: # hpが0になった時に、selfをkill
+            self.kill()
+        
+        if self.rect.centery > self.bound and self.state=="down": # 停止位置行った時とstateがdawnだったら、yのスピードを0に、stateをstop_dにする
             self.vy = 0
+            self.state = "stop_d"
+            
+        if self.state == "stop_d": # stateの状態がstop_dの時、タイマーを＋1していく
+            self.tmr += 1
+            if self.tmr%20 == 0: # タイマーが20秒おきにstateをmoveに変えて、タイマーを初期化、vxを左方向へ
+                self.state = "move"
+                self.tmr = 0
+                self.vx = -6
+                
+            else: # それ以外なら、止まる
+                self.vx = 0
+
+        if self.state == "stop": # stateがstopの時に、タイマーを+1していき、止まる
+            self.tmr += 1
+            self.vx = 0
+            if self.tmr%20 == 0: # タイマーが20秒おきにstateをmoveに変えて、タイマーを初期化、vxを右方向へ
+                self.state = "move"
+                self.tmr = 0
+                self.vx = 6
+
+        if self.rect.centerx < 100: # self.rect.centerxが100より小さい時に、反転し、stateをstopに変える
+            self.vx *= -1
             self.state = "stop"
+            
+        if self.rect.centerx > 1000: # self.rect.centerxが1000より大きい時に、反転し、stateをstop_dに変える
+            self.vx *= -1
+            self.state = "stop_d"
+        
         self.rect.move_ip(self.vx, self.vy)
 
 
@@ -335,6 +367,9 @@ def main():
     tmr = 0
     judge = False  # チャージしているか判定する。初期値False
     clock = pg.time.Clock()
+
+    emys.add(Boss()) # 敵の呼び出し
+
     while True:
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
@@ -347,13 +382,17 @@ def main():
                 if c_tmr >= 60:  # 60以上なら
                     c_beams.add(Chargebeam(bird, c_tmr))  # Chargebeamクラスに送る
                 else:
-                    beams.add(Beam(bird))  # Beamクラスに送る
+                    beams.add(Beam(bird, 0))  # Beamクラスに送る
                 judge = False
 
         screen.blit(bg_img, [0, 0])
-
-        if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
-            emys.add(Enemy())
+        
+        if len(emys) == 0:  
+            bird.change_img(9, screen) # こうかとん悲しみエフェクト
+            score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return
 
         if judge:  # judgeがTrueなら
             c_tmr += 1  # チャージのタイマーをカウントし、Chargejudgeクラスのvalueに送る
@@ -362,13 +401,21 @@ def main():
             c_judge.value = 0
 
         for emy in emys:
-            if emy.state == "stop" and tmr%emy.interval == 0:
+            if emy.state != "down" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
+            
+        for emy in pg.sprite.spritecollide(bird, emys, False):
+            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+            score.update(screen)
+            pg.display.update()
+            time.sleep(2)
+            return 
 
-        for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
+        for emy in pg.sprite.groupcollide(emys, beams, False, True).keys():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 10  # 10点アップ
+            emy.hp -= 1
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
         for emy in pg.sprite.groupcollide(emys, c_beams, True, True).keys():  # 敵とチャージビームの衝突
@@ -385,8 +432,9 @@ def main():
             score.value += 1  # 1点アップ
 
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
+            bird.change_img(8, screen) # こうかとん喜びエフェクト
             score.update(screen)
-            bird.change_img(4, screen)  # こうかとんダメージリアクション
+            bird.change_img(4, screen)  # こうかとんダメージリアクション 
             bird.hp -= 10
             if bird.hp <= 0:
                 bird.change_img(8, screen) # こうかとん悲しみエフェクト
@@ -420,5 +468,5 @@ def main():
 if __name__ == "__main__":
     pg.init()
     main()
-    pg.quit()
+    pg.quit() 
     sys.exit()
