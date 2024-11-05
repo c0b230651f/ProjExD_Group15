@@ -36,6 +36,8 @@ def calc_orientation(org: pg.Rect, dst: pg.Rect) -> tuple[float, float]:
     norm = math.sqrt(x_diff**2+y_diff**2)
     return x_diff/norm, y_diff/norm
 
+def check_landing(obj_rct: pg.Rect) -> bool:
+    return obj_rct.bottom >= HEIGHT
 
 class Bird(pg.sprite.Sprite):
     """
@@ -43,7 +45,6 @@ class Bird(pg.sprite.Sprite):
     """
     delta = {  # 押下キーと移動量の辞書
         pg.K_UP: (0, -1),
-        pg.K_DOWN: (0, +1),
         pg.K_LEFT: (-1, 0),
         pg.K_RIGHT: (+1, 0),
     }
@@ -59,20 +60,17 @@ class Bird(pg.sprite.Sprite):
         img = pg.transform.flip(img0, True, False)  # デフォルトのこうかとん
         self.imgs = {
             (+1, 0): img,  # 右
-            (+1, -1): pg.transform.rotozoom(img, 45, 1.0),  # 右上
-            (0, -1): pg.transform.rotozoom(img, 90, 1.0),  # 上
-            (-1, -1): pg.transform.rotozoom(img0, -45, 1.0),  # 左上
             (-1, 0): img0,  # 左
-            (-1, +1): pg.transform.rotozoom(img0, 45, 1.0),  # 左下
-            (0, +1): pg.transform.rotozoom(img, -90, 1.0),  # 下
-            (+1, +1): pg.transform.rotozoom(img, -45, 1.0),  # 右下
         }
         self.dire = (+1, 0)
         self.image = self.imgs[self.dire]
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
-        self.hp = 100  # HP初期値設定
+        self.jump_speed = -20 # ジャンプの高さ
+        self.is_jumping = False
+        self.hp = 100
+        self.fall_speed = 5
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -86,20 +84,49 @@ class Bird(pg.sprite.Sprite):
     def update(self, key_lst: list[bool], screen: pg.Surface):
         """
         押下キーに応じてこうかとんを移動させる
+        左右で左右に移動
+        上でジャンプ
         引数1 key_lst：押下キーの真理値リスト
         引数2 screen：画面Surface
         """
+        # 水平方向の移動量を計算
         sum_mv = [0, 0]
-        for k, mv in __class__.delta.items():
+        for k in [pg.K_LEFT, pg.K_RIGHT]:
             if key_lst[k]:
-                sum_mv[0] += mv[0]
-                sum_mv[1] += mv[1]
-        self.rect.move_ip(self.speed*sum_mv[0], self.speed*sum_mv[1])
-        if check_bound(self.rect) != (True, True):
-            self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
-        if not (sum_mv[0] == 0 and sum_mv[1] == 0):
-            self.dire = tuple(sum_mv)
+                sum_mv[0] += __class__.delta[k][0]
+
+        # ジャンプの処理
+        if not self.is_jumping and key_lst[pg.K_UP]:
+            self.is_jumping = True
+            self.fall_speed = self.jump_speed
+
+        # 重力の適用
+        if self.is_jumping:
+            self.rect.move_ip(0, self.fall_speed)
+            self.fall_speed += 0.5  # 重力加速度
+            if self.rect.bottom >= HEIGHT:
+                self.rect.bottom = HEIGHT
+                self.is_jumping = False
+                self.fall_speed = 0
+        else:
+            self.rect.bottom = min(self.rect.bottom, HEIGHT)
+
+        # 水平方向の移動
+        if sum_mv[0] != 0:
+            self.rect.move_ip(self.speed * sum_mv[0], 0)
+            self.dire = (sum_mv[0], 0)
             self.image = self.imgs[self.dire]
+
+        # キャラクターの位置を画面内に制限
+        if self.rect.left < 0:
+            self.rect.left = 0
+        if self.rect.right > WIDTH:
+            self.rect.right = WIDTH
+        if self.rect.top < 0:
+            self.rect.top = 0
+        if self.rect.bottom > HEIGHT:
+            self.rect.bottom = HEIGHT
+
         screen.blit(self.image, self.rect)
 
 class Bomb(pg.sprite.Sprite):
@@ -234,11 +261,10 @@ class Explosion(pg.sprite.Sprite):
 class Boss(pg.sprite.Sprite):
     """
     敵(ボス)に関するクラス
-    """
-    
+    """ 
     def __init__(self):
         super().__init__()
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/alien1.png"),0, 2.0) # 敵の写真をロード
+        self.image = pg.transform.rotozoom(pg.image.load("fig/file8080.png"), 0, 2.0)
         self.rect = self.image.get_rect()
         self.rect.center = 700, 0
         self.vx, self.vy = 0, +6
@@ -388,11 +414,11 @@ class HealItem(pg.sprite.Sprite):
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
-    bg_img = pg.image.load(f"fig/pg_bg.jpg")
+    bg_img = pg.image.load(f"fig/stage3.png")
     score = Score()
     c_judge = Chargejudge()
 
-    bird = Bird(3, (900, 400))
+    bird = Bird(3, (WIDTH/4, HEIGHT))
     hpbar = Hpbar(bird)
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
@@ -403,6 +429,8 @@ def main():
 
 
     
+
+
 
     tmr = 0
     judge = False  # チャージしているか判定する。初期値False
@@ -517,11 +545,6 @@ def main():
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
-    
-        
-        
-
 
 if __name__ == "__main__":
     pg.init()
