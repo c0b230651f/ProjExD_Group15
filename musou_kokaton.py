@@ -46,8 +46,8 @@ class Bird(pg.sprite.Sprite):
         pg.K_DOWN: (0, +1),
         pg.K_LEFT: (-1, 0),
         pg.K_RIGHT: (+1, 0),
-        }    
-    
+    }
+
     def __init__(self, num: int, xy: tuple[int, int]):
         """
         こうかとん画像Surfaceを生成する
@@ -72,8 +72,7 @@ class Bird(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = xy
         self.speed = 10
-
-
+        self.hp = 100  # HP初期値設定
 
     def change_img(self, num: int, screen: pg.Surface):
         """
@@ -102,7 +101,6 @@ class Bird(pg.sprite.Sprite):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
         screen.blit(self.image, self.rect)
-
 
 class Bomb(pg.sprite.Sprite):
     """
@@ -154,15 +152,12 @@ class Beam(pg.sprite.Sprite):
         self.speed = 10
         self.size = 1.0
         self.dmg = 1
-
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, self.size)
         self.vx = math.cos(math.radians(angle))
         self.vy = -math.sin(math.radians(angle))
         self.rect = self.image.get_rect()
         self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
         self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
-        
-        
 
     def update(self):
         """
@@ -170,10 +165,8 @@ class Beam(pg.sprite.Sprite):
         引数 screen：画面Surface
         """
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
-
         if check_bound(self.rect) != (True, True):
-            self.kill
-
+            self.kill()
 
 class Chargebeam(pg.sprite.Sprite):
     """
@@ -199,7 +192,7 @@ class Chargebeam(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
         self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
-        
+
     def update(self):
         """
         ビームを速度ベクトルself.vx, self.vyに基づき移動させる
@@ -209,7 +202,6 @@ class Chargebeam(pg.sprite.Sprite):
 
         if check_bound(self.rect) != (True, True):
             self.kill
-
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -285,7 +277,6 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
-
 class Chargejudge:
     """
     チャージが完了しているか表示するクラス
@@ -307,19 +298,39 @@ class Chargejudge:
             self.image = self.font.render("Charge:Hold SPACE", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Hpbar:
+    """
+    HPバーを表示するクラス
+    """
+    def __init__(self, obj:Bird):
+        self.obj = obj
+        self.max = self.obj.hp  # HPの初期値を取得
+
+    def update(self, screen:pg.Surface):
+        diff = (self.max - self.obj.hp)
+        # 画面左側にHPバーを描画
+        pg.draw.rect(screen, (255, 0, 0), (20, 20, 20, self.max*2))
+        pg.draw.rect(screen, (0, 255, 0), (20, 20 + 2 * diff, 20, self.obj.hp*2))
+        pg.draw.rect(screen, (125, 50, 50), (20, 20, 20, self.max*2), 1)
+        for i in range(self.max//2):
+            pg.draw.rect(screen, (125, 50, 50), (20, 215-i*4, 20, 2), 1)
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
     c_judge = Chargejudge()
- 
+
     bird = Bird(3, (900, 400))
+    hpbar = Hpbar(bird)
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     c_beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+
+    
 
     tmr = 0
     judge = False  # チャージしているか判定する。初期値False
@@ -341,21 +352,21 @@ def main():
 
         screen.blit(bg_img, [0, 0])
 
+        if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
+            emys.add(Enemy())
+
         if judge:  # judgeがTrueなら
             c_tmr += 1  # チャージのタイマーをカウントし、Chargejudgeクラスのvalueに送る
             c_judge.value = c_tmr
         else:
             c_judge.value = 0
 
-        if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
-            emys.add(Enemy())
-
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
 
-        for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():  # 敵とビームの衝突
+        for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
@@ -365,7 +376,7 @@ def main():
             score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
-        for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # 爆弾とビームの衝突
+        for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
@@ -374,11 +385,14 @@ def main():
             score.value += 1  # 1点アップ
 
         if len(pg.sprite.spritecollide(bird, bombs, True)) != 0:
-            bird.change_img(8, screen) # こうかとん悲しみエフェクト
             score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            bird.change_img(4, screen)  # こうかとんダメージリアクション
+            bird.hp -= 10
+            if bird.hp <= 0:
+                bird.change_img(8, screen) # こうかとん悲しみエフェクト
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -393,10 +407,14 @@ def main():
         exps.draw(screen)
         score.update(screen)
         c_judge.update(screen)
+        hpbar.update(screen)
         pg.display.update()
         tmr += 1
-
         clock.tick(50)
+
+    
+        
+        
 
 
 if __name__ == "__main__":
