@@ -330,7 +330,7 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
 
-
+    
 
     tmr = 0
     judge = False  # チャージしているか判定する。初期値False
