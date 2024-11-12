@@ -521,12 +521,10 @@ def main():
                 time.sleep(2)
                 return
         
-        elif len(pg.sprite.spritecollide(bird, healitems, True)) != 0:  # アイテムとこうかとんとの衝突判定
+        elif len(pg.sprite.spritecollide(bird, healitems, False)) != 0:  # アイテムとこうかとんとの衝突判定
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
-            if (10+bird.hp) <= 100:
-                bird.hp += 10
-            else:
-                bird.hp = 100 
+            for item in pg.sprite.spritecollide(bird, healitems, True):
+                item.heal(bird)
             
             pg.display.update()
             time.sleep(0.1)  # 0.1秒停止
